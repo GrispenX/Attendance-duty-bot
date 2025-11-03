@@ -4,8 +4,6 @@ from states import State, Home, Registration
 from dotenv import load_dotenv
 import os, mariadb, sys
 
-load_dotenv()
-
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -68,6 +66,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 if __name__ == "__main__":
+    load_dotenv(os.getenv("ENV_FILE", ".env"))
 
     app = Application.builder().token(os.getenv("TOKEN")).build()
 

@@ -1,8 +1,9 @@
 import mariadb, os, sys
-from dotenv import load_dotenv
 from datetime import datetime
 from typing import Dict, List, Tuple
 from dataclasses import dataclass
+from dotenv import load_dotenv
+load_dotenv(os.getenv("ENV_FILE", ".env"))
 
 
 
@@ -57,15 +58,14 @@ class DutyPhoto:
 
 
 
-load_dotenv()
 def get_conn() -> mariadb.Connection:
     try:
         conn = mariadb.connect(
-            host="localhost",
-            port=3306,
-            database="bot",
-            user="bot",
-            password=os.getenv("DB_PASSWORD")
+            host=os.getenv("MARIADB_HOST"),
+            port=int(os.getenv("MARIADB_PORT")),
+            database=os.getenv("MARIADB_DATABASE"),
+            user=os.getenv("MARIADB_USER"),
+            password=os.getenv("MARIADB_PASSWORD")
         )
         return conn
     except mariadb.Error as e:
