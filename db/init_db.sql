@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS `attendance` (
 CREATE TABLE IF NOT EXISTS `duties` (
   `id` integer PRIMARY KEY AUTO_INCREMENT,
   `date` date NOT NULL,
-  `status` enum('done','failed') NOT NULL
+  `status` enum('done','undone') NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS `duty_assignments` (
@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS `duty_assignments` (
 
 CREATE TABLE IF NOT EXISTS `groups` (
   `id` integer PRIMARY KEY AUTO_INCREMENT,
-  `telegram_id` integer NOT NULL
+  `telegram_id` bigint NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS `duty_photos` (

@@ -443,3 +443,35 @@ def get_duty_photo(id: int) -> DutyPhoto | None:
             )
             photo = cur.fetchone()
             return DutyPhoto(photo[0], photo[1], photo[2], photo[3]) if photo else None
+        
+
+
+def add_group(telegram_id: int):
+    if telegram_id in get_groups():
+        return
+    
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO groups (telegram_id) VALUES (?)",
+                (telegram_id,)
+            )
+            conn.commit()
+
+def remove_group(telegram_id: int):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM groups WHERE telegram_id = ?",
+                (telegram_id,)
+            )
+            conn.commit()
+
+def get_groups() -> List[int]:
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT telegram_id FROM groups"
+            )
+            groups = cur.fetchall()
+            return [group[0] for group in groups] if groups else []

@@ -129,12 +129,16 @@ class Home(State):
             "Привіт!\nЯк я можу допомогти?",
             markup=InlineKeyboardMarkup([
                 [
-                    InlineKeyboardButton("Надіслати чергування", callback_data="SaveDutyPhoto"),
+                    InlineKeyboardButton("Надіслати чергування", callback_data="SaveDutyPhoto")
+                ],
+                [
                     InlineKeyboardButton("Преглянути чергування", callback_data="GetDutyPhoto")
                 ],
                 [
-                    InlineKeyboardButton("Моя відвідуваність", callback_data="MyAttendance"),
                     InlineKeyboardButton("Історія чергувань", callback_data="DutyHistory")
+                ],
+                [
+                    InlineKeyboardButton("Моя відвідуваність", callback_data="MyAttendance")
                 ],
                 [
                     InlineKeyboardButton("Адмін-панель", callback_data="Admin")
@@ -153,10 +157,10 @@ class Home(State):
             return GetDutyPhotoDate()
         
         elif data == "DutyHistory":
-            return DutyHistoryFrom()
+            return DutyHistoryDate()
         
         elif data == "MyAttendance":
-            return MyAttendanceFrom()
+            return MyAttendanceDate()
         
         elif data == "Admin":
             return Admin()
@@ -314,84 +318,152 @@ class NoDutyPhoto(State):
 
 
 @dataclass
-class DutyHistoryFrom(State):
+class DutyHistoryDate(State):
     async def on_enter(self, update, context):
-        await self.__send_message__(update, context, "Надішли дату з якої почати формувати історію чергувань\nФормат дати: ДД.ММ.РРРР")
-
-    async def on_message(self, update, context):
-        text = update.message.text
-        if text:
-            from_date = StrToDate(text)
-            if from_date:
-                return DutyHistoryTo(from_date)
-
-
-
-@dataclass
-class DutyHistoryTo(State):
-    from_date: datetime
-
-    async def on_enter(self, update, context):
-        await self.__send_message__(update, context, "Чудово!\nТепер наділши дату до якої формувати історію чергувань\nФормат дати: ДД.ММ.РРРР")
-
-    async def on_message(self, update, context):
-        text = update.message.text
-        if text:
-            to_date = StrToDate(text)
-            if to_date:
-                return MakeDutyHistory(self.from_date, to_date)
-
-
-
-@dataclass
-class MakeDutyHistory(State):
-    from_date: datetime
-    to_date: datetime
-
-    async def on_enter(self, update, context):
-        # DO THIS
-        return Home()
-
-
-
-@dataclass
-class MyAttendanceFrom(State):
-    async def on_enter(self, update, context):
-        await self.__send_message__(update, context, "Надішли дату з якої почати формувати твою відвідуваність\nФормат дати: ДД.ММ.РРРР")
-
-    async def on_message(self, update, context):
-        text = update.message.text
-        if text:
-            from_date = StrToDate(text)
-            if from_date:
-                return MyAttendanceTo(from_date)
-
-
-
-@dataclass
-class MyAttendanceTo(State):
-    from_date: datetime
+        await self.__send_message__(
+            update, context,
+            "Надішли дату за яку хочеш переглянути чергових\nФормат дати: ДД.ММ.РРРР",
+            InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton("Сьогодні", callback_data="Today")
+                    ],
+                    [
+                        InlineKeyboardButton("Назад", callback_data="Back")
+                    ]
+                ]
+            )
+        )
     
-    async def on_enter(self, update, context):
-        await self.__send_message__(update, context, "Надішли дату до якої формувати твою відвідуваність\nФормат дати: ДД.ММ.РРРР")
+    async def on_callback(self, update, context):
+        data = update.callback_query.data
+        await update.callback_query.answer()
+
+        if data == "Today":
+            return DutyHistory(datetime.now().date())
+        
+        elif data == "Back":
+            return Home()
 
     async def on_message(self, update, context):
         text = update.message.text
         if text:
-            to_date = StrToDate(text)
-            if to_date:
-                return MakeMyAttendance(self.from_date, to_date)
+            date = StrToDate(text)
+            if date:
+                return DutyHistory(date)
 
 
 
 @dataclass
-class MakeMyAttendance(State):
-    from_date: datetime
-    to_date: datetime
+class DutyHistory(State):
+    date: datetime
 
     async def on_enter(self, update, context):
-        # DO THIS
-        return Home()
+        duty = db.get_duty_by_date(self.date)
+        await self.__send_message__(
+            update, context,
+            f"Чергові за {self.date.strftime("%d.%m.%Y")}:\n{"Немає" if not duty else "\n".join([dutier.surname for dutier in duty.dutiers])}",
+            InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton("⬅️", callback_data="Previous"),
+                        InlineKeyboardButton("Назад", callback_data="Back"),
+                        InlineKeyboardButton("➡️", callback_data="Next")
+                    ]
+                ]
+            )
+        )
+    
+    async def on_callback(self, update, context):
+        data = update.callback_query.data
+        await update.callback_query.answer()
+
+        if data == "Previous":
+            return DutyHistory(self.date - timedelta(days=1))
+        
+        elif data == "Next":
+            return DutyHistory(self.date + timedelta(days=1))
+        
+        elif data == "Back":
+            return Home()
+
+
+
+@dataclass
+class MyAttendanceDate(State):
+    async def on_enter(self, update, context):
+        await self.__send_message__(
+            update, context,
+            "Надішли дату, за яку хочеш переглянути свою відвідуваність\nФормат дати: ДД.ММ.РРРР",
+            InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton("Сьогодні", callback_data="Today")
+                    ],
+                    [
+                        InlineKeyboardButton("Назад", callback_data="Back")
+                    ]
+                ]
+            )
+        )
+    
+    async def on_callback(self, update, context):
+        data = update.callback_query.data
+        await update.callback_query.answer()
+
+        if data == "Today":
+            return MyAttendance(datetime.now().date())
+        
+        elif data == "Back":
+            return Home()
+        
+    async def on_message(self, update, context):
+        text = update.message.text
+        if text:
+            date = StrToDate(text)
+            if date:
+                return MyAttendance(date)
+
+
+
+@dataclass
+class MyAttendance(State):
+    date: datetime
+
+    async def on_enter(self, update, context):
+        lessons = db.get_lessons_by_date(self.date)
+        user = db.get_user_by_telegram(update.effective_user.id)
+        attendance_formated = []
+        for lesson in lessons:
+            attendance = db.get_user_on_lesson_attendance(user.id, lesson.id)
+            attendance_formated.append(f"{lesson.index}. {lesson.subject.name} - {"Н" if attendance.status == "unpresent" else "Є"}")
+
+        await self.__send_message__(
+            update, context,
+            f"Твоя відвідуваність за {self.date.strftime("%d.%m.%Y")}\n{"\n".join(attendance_formated) if attendance_formated else "Пар немає"}",
+            InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton("⬅️", callback_data="Previous"),
+                        InlineKeyboardButton("Назад", callback_data="Back"),
+                        InlineKeyboardButton("➡️", callback_data="Next")
+                    ]
+                ]
+            )
+        )
+    
+    async def on_callback(self, update, context):
+        data = update.callback_query.data
+        await update.callback_query.answer()
+
+        if data == "Previous":
+            return MyAttendance(self.date - timedelta(days=1))
+        
+        elif data == "Next":
+            return MyAttendance(self.date + timedelta(days=1))
+        
+        elif data == "Back":
+            return Home()
 
 
 
@@ -424,11 +496,10 @@ class Admin(State):
 
         await self.__send_message__(
             update, context,
-            "Єбать важний хуй бумажний\nВот твоя адмінка",
+            "Панель адміністратора",
             markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("Нова пара", callback_data="AddLesson"), InlineKeyboardButton("Чергування", callback_data="Duty")],
+                [InlineKeyboardButton("Пари", callback_data="Lessons"), InlineKeyboardButton("Чергування", callback_data="Duties")],
                 [InlineKeyboardButton("Дисципліни", callback_data="Subjects"), InlineKeyboardButton("Юзери", callback_data="Users")],
-                [InlineKeyboardButton("Звіти", callback_data="Reports"), InlineKeyboardButton("Пари", callback_data="Lessons")],
                 [InlineKeyboardButton("Назад", callback_data="Back")]
             ])
         )
@@ -437,23 +508,17 @@ class Admin(State):
         data = update.callback_query.data
         await update.callback_query.answer()
 
-        if data == "AddLesson":
-            return AddLessonDate()
-
-        elif data == "Lessons":
+        if data == "Lessons":
             return LessonsDate()
 
-        elif data == "Duty":
-            return Duty()
+        elif data == "Duties":
+            return DutiesDate()
 
         elif data == "Subjects":
             return Subjects()
 
         elif data == "Users":
             return Users()
-
-        elif data == "Reports":
-            return
 
         elif data == "Back":
             return Home()
@@ -547,7 +612,17 @@ class LessonsDate(State):
     async def on_enter(self, update, context):
         await self.__send_message__(
             update, context,
-            "Надішли дату"
+            "Надішли дату",
+            InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton("Сьогодні", callback_data="Today")
+                    ],
+                    [
+                        InlineKeyboardButton("Назад", callback_data="Back")
+                    ]
+                ]
+            )
         )
 
     async def on_message(self, update, context):
@@ -556,18 +631,28 @@ class LessonsDate(State):
             date = StrToDate(text)
             if date:
                 return Lessons(date)
+    
+    async def on_callback(self, update, context):
+        data = update.callback_query.data
+        await update.callback_query.answer()
+
+        if data == "Today":
+            return Lessons(datetime.now().date())
+        
+        elif data == "Back":
+            return Admin()
 
 
 
 @dataclass
 class Lessons(State):
     date: datetime
-
+    
     async def on_enter(self, update, context):
         lessons = db.get_lessons_by_date(self.date)
         await self.__send_message__(
             update, context,
-            f"Пари за {self.date}",
+            f"Пари за {self.date.strftime("%d.%m.%Y")}",
             InlineKeyboardMarkup(
                 [
                     [
@@ -577,7 +662,12 @@ class Lessons(State):
                 +
                 [
                     [
-                        InlineKeyboardButton("Назад", callback_data="Back")
+                        InlineKeyboardButton("Нова пара", callback_data="AddLesson")
+                    ],
+                    [
+                        InlineKeyboardButton("⬅️", callback_data="Previous"),
+                        InlineKeyboardButton("Назад", callback_data="Back"),
+                        InlineKeyboardButton("➡️", callback_data="Next")
                     ]
                 ]
             )
@@ -587,8 +677,17 @@ class Lessons(State):
         data = update.callback_query.data
         await update.callback_query.answer()
 
-        if data == "Back":
+        if data == "AddLesson":
+            return AddLessonIndex(self.date)
+
+        elif data == "Back":
             return Admin()
+        
+        elif data == "Previous":
+            return Lessons(self.date - timedelta(days=1))
+        
+        elif data == "Next":
+            return Lessons(self.date + timedelta(days=1))
 
         elif data.isdigit():
             return Lesson(data)
@@ -603,7 +702,7 @@ class Lesson(State):
         lesson = db.get_lesson_by_id(self.lesson_id)
         await self.__send_message__(
             update, context,
-            f"{lesson.date}, {lesson.index}. {lesson.subject.name}",
+            f"{lesson.date.strftime("%d.%m.%Y")}, {lesson.index}. {lesson.subject.name}",
             InlineKeyboardMarkup(
                 [
                     [
@@ -667,7 +766,7 @@ class Attendance(State):
         lesson = db.get_lesson_by_id(self.lesson_id)
         await self.__send_message__(
             update, context,
-            f"Присутні на {lesson.date}, {lesson.index}. {lesson.subject.name}",
+            f"Присутні на {lesson.date.strftime("%d.%m.%Y")}, {lesson.index}. {lesson.subject.name}",
             InlineKeyboardMarkup(
                 [
                     [
@@ -703,31 +802,32 @@ class Attendance(State):
 
 
 @dataclass
-class Duty(State):
+class DutiesDate(State):
     async def on_enter(self, update, context):
         await self.__send_message__(
             update, context,
-            "Чергування\nВибери дію",
+            "Чергування. Надішли дату",
             InlineKeyboardMarkup([
                 [
-                    InlineKeyboardButton("Автовибір", callback_data="Auto"),
-                    InlineKeyboardButton("Попередні", callback_data="PreviousDuties")
-                ],
-                [
+                    InlineKeyboardButton("Сьогодні", callback_data="Today"),
                     InlineKeyboardButton("Назад", callback_data="Back")
                 ]
             ])
         )
 
+    async def on_message(self, update, context):
+        text = update.message.text
+        if text:
+            date = StrToDate(text)
+            if date:
+                return Duties(date)
+
     async def on_callback(self, update, context):
         data = update.callback_query.data
         await update.callback_query.answer()
 
-        if data == "Auto":
-            return AutoDutyAmount()
-        
-        elif data == "PreviousDuties":
-            return PreviousDuties()
+        if data == "Today":
+            return Duties(datetime.now().date())
         
         elif data == "Back":
             return Admin()
@@ -735,7 +835,103 @@ class Duty(State):
 
 
 @dataclass
+class Duties(State):
+    date: datetime
+
+    async def on_enter(self, update, context):
+        duty = db.get_duty_by_date(self.date)
+        await self.__send_message__(
+            update, context,
+            f"Чергування {self.date.strftime("%d.%m.%Y")} - {("🟢" if duty.status == "done" else "🔴") if duty else "Немає"}\nЧергові:\n{"\n".join(dutier.surname for dutier in duty.dutiers) if duty else "Немає"}",
+            InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton("Статус", callback_data="Status"),
+                        InlineKeyboardButton("Чергові", callback_data="Dutiers")
+                    ]
+                    if duty else
+                    [
+                        InlineKeyboardButton("Автовибір", callback_data="Autochoose")
+                    ],
+                    [
+                        InlineKeyboardButton("⬅️", callback_data="Previous"),
+                        InlineKeyboardButton("Назад", callback_data="Back"),
+                        InlineKeyboardButton("➡️", callback_data="Next")
+                    ]
+                ]
+            )
+        )
+
+    async def on_callback(self, update, context):
+        data = update.callback_query.data
+        await update.callback_query.answer()
+
+        if data == "Status":
+            duty = db.get_duty_by_date(self.date)
+            if duty:
+                db.set_duty_status(duty.id, "done" if duty.status == "undone" else "undone")
+                return Duties(self.date)
+            
+        elif data == "Dutiers":
+            duty = db.get_duty_by_date(self.date)
+            if duty:
+                return Dutiers(duty.id)
+
+        elif data == "Autochoose":
+            return AutoDutyAmount(self.date)
+        
+        elif data == "Previous":
+            return Duties(self.date - timedelta(days=1))
+        
+        elif data == "Next":
+            return Duties(self.date + timedelta(days=1))
+        
+        elif data == "Back":
+            return Admin()
+
+
+
+@dataclass
+class Dutiers(State):
+    duty_id: int
+    
+    async def on_enter(self, update, context):
+        duty = db.get_duty_by_id(self.duty_id)
+        await self.__send_message__(
+            update, context,
+            f"Чергові {duty.date.strftime("%d.%m.%Y")}",
+            InlineKeyboardMarkup(
+                [
+                    [InlineKeyboardButton(f"{"🟢" if dutier in duty.dutiers else "🔴"} {dutier.surname}", callback_data=dutier.id)] for dutier in db.get_users_by_role("dutier")
+                ]
+                +
+                [
+                    [InlineKeyboardButton("Назад", callback_data="Back")]
+                ]
+            )
+        )   
+    
+    async def on_callback(self, update, context):
+        data = update.callback_query.data
+        await update.callback_query.answer()
+
+        if data == "Back":
+            return Duties(db.get_duty_by_id(self.duty_id).date)
+        
+        elif data.isdigit():
+            duty = db.get_duty_by_id(self.duty_id)
+            if db.get_user_by_id(data) in duty.dutiers:
+                db.unassign_to_duty(duty.id, data)
+            else:
+                db.assign_to_duty(duty.id, data)
+            return Dutiers(duty.id)
+
+
+
+@dataclass
 class AutoDutyAmount(State):
+    date: datetime
+
     async def on_enter(self, update, context):
         await self.__send_message__(
             update, context,
@@ -746,24 +942,26 @@ class AutoDutyAmount(State):
     async def on_callback(self, update, context):
         data = update.callback_query.data
         await update.callback_query.answer()
-        return AutoDutyChoose(int(data))
+        return AutoDutyChoose(self.date, int(data))
 
 
 
 @dataclass
 class AutoDutyChoose(State):
+    date: datetime
     dutiers_amount: int
 
     async def on_enter(self, update, context):
         dutiers_list = db.get_duty_order()
         self.dutiers_amount = min(self.dutiers_amount, len(dutiers_list))
         choosen_dutiers = [dutiers_list[i] for i in range(self.dutiers_amount)]
-        return AutoDutyConfirm(choosen_dutiers)
+        return AutoDutyConfirm(self.date, choosen_dutiers)
 
 
 
 @dataclass
 class AutoDutyConfirm(State):
+    date: datetime
     dutiers: List[db.User]
 
     async def on_enter(self, update, context):
@@ -783,175 +981,37 @@ class AutoDutyConfirm(State):
         await update.callback_query.answer()
 
         if data == "Confirm":
-            return AutoDutyNotify(self.dutiers)
+            return AutoDutyNotify(self.date, self.dutiers)
         
         if data == "Back":
-            return Duty()
+            return Duties(self.date)
 
 
 
 @dataclass
 class AutoDutyNotify(State):
+    date: datetime
     dutiers: List[db.User]
 
     async def on_enter(self, update, context):
-        # DO THIS
-        return AutoDutySave(self.dutiers)
+        groups = db.get_groups()
+        for group in groups:
+            await context.bot.send_message(group, f"Привітаємо чергових {self.date.strftime("%d.%m.%Y")}:\n{"\n".join([dutier.surname for dutier in self.dutiers])}")
+        return AutoDutySave(self.date, self.dutiers)
 
 
 
 @dataclass
 class AutoDutySave(State):
+    date: datetime
     dutiers: List[db.User]
 
     async def on_enter(self, update, context):
-        db.add_duty(datetime.now().date())
-        duty = db.get_duty_by_date(datetime.now().date())
+        db.add_duty(self.date)
+        duty = db.get_duty_by_date(self.date)
         for dutier in self.dutiers:
             db.assign_to_duty(duty.id, dutier.id)
         return Home()
-
-
-
-@dataclass
-class PreviousDuties(State):
-    async def on_enter(self, update, context):
-        await self.__send_message__(
-            update, context,
-            "Надішли дату чергування"
-        )
-
-    async def on_message(self, update, context):
-        text = update.message.text
-        if text:
-            date = StrToDate(text)
-            if date:
-                duty = db.get_duty_by_date(date)
-                if duty:
-                    return PreviousDuty(duty.id)
-
-
-
-@dataclass
-class PreviousDuty(State):
-    duty_id: int
-
-    async def on_enter(self, update, context):
-        duty = db.get_duty_by_id(self.duty_id)
-        await self.__send_message__(
-            update, context,
-            f"{duty.date} - {duty.status}",
-            InlineKeyboardMarkup(
-                [
-                    [
-                        InlineKeyboardButton("Статус", callback_data="Status"),
-                        InlineKeyboardButton("Чергові", callback_data="Dutiers")
-                    ],
-                    [
-                        InlineKeyboardButton("Назад", callback_data="Back")
-                    ]
-                ]
-            )
-        )
-    
-    async def on_callback(self, update, context):
-        data = update.callback_query.data
-        await update.callback_query.answer()
-
-        if data == "Back":
-            return Duty()
-        
-        elif data == "Status":
-            duty = db.get_duty_by_id(self.duty_id)
-            db.set_duty_status(duty.id, "done" if duty.status == "undone" else "undone")
-            return PreviousDuty(self.duty_id)
-        elif data == "Dutiers":
-            return PreviousDutyDutiers(self.duty_id)
-
-
-
-@dataclass
-class PreviousDutyDutiers(State):
-    duty_id: int
-
-    async def on_enter(self, update, context):
-        duty = db.get_duty_by_id(self.duty_id)
-        await self.__send_message__(
-            update, context,
-            f"Чергові {duty.date} - {duty.status}",
-            InlineKeyboardMarkup(
-                [
-                    [InlineKeyboardButton(f"{"🟢" if dutier in duty.dutiers else "🔴"} {dutier.surname}", callback_data=dutier.id)] for dutier in db.get_users_by_role("dutier")
-                ]
-                +
-                [
-                    [InlineKeyboardButton("Назад", callback_data="Back")]
-                ]
-            )
-        )
-    
-    async def on_callback(self, update, context):
-        data = update.callback_query.data
-        await update.callback_query.answer()
-
-        if data == "Back":
-            return PreviousDuty(self.duty_id)
-        
-        elif data.isdigit():
-            duty = db.get_duty_by_id(self.duty_id)
-            if db.get_user_by_id(data) in duty.dutiers:
-                db.unassign_to_duty(duty.id, data)
-            else:
-                db.assign_to_duty(duty.id, data)
-            return PreviousDutyDutiers(duty.id)
-
-
-
-@dataclass
-class Reports(State):
-    pass
-
-
-
-@dataclass
-class ReportLessonsFrom(State):
-    pass
-
-
-
-@dataclass
-class ReportLessonsTo(State):
-    pass
-
-
-
-@dataclass
-class ReportDaysFrom(State):
-    pass
-
-
-
-@dataclass
-class ReportDaysTo(State):
-    pass
-
-
-
-@dataclass
-class ReportSubjectFrom(State):
-    pass
-
-
-
-@dataclass
-class ReportSubjectTo(State):
-    pass
-
-
-
-@dataclass
-class ReportSubjectName(State):
-    pass
 
 
 

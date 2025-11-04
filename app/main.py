@@ -2,16 +2,16 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ChatMemberHandler, filters, ContextTypes
 from states import State, Home, Registration
 from dotenv import load_dotenv
-import os, mariadb, sys
+import os, db
 
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Привіт!\n" \
-        "В цьому боті ти можеш переглянути свої пропуски і історію чергувань\n" \
+        "В цьому боті ти можеш надсилати та переглядати фото чергувань\n" \
         "Якщо ти студент групи ІПЗ-3/1 і ще не зареєстрований - зроби це командою /register\n" \
-        "Якщо ти вже зареєстрований напиши - /home"
+        "Якщо ти вже зареєстрований напиши /home"
     )
 
 
@@ -64,6 +64,19 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
+async def group(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.my_chat_member:
+        new_status = update.my_chat_member.new_chat_member.status
+        old_status = update.my_chat_member.old_chat_member.status
+        chat = update.my_chat_member.chat
+
+        if old_status in ["left", "kicked"] and new_status in ["member", "administrator"]:
+            db.add_group(chat.id)
+
+        elif old_status in ["member", "administrator"] and new_status in ["left", "kicked"]:
+            db.remove_group(chat.id)
+
+
 
 if __name__ == "__main__":
     load_dotenv(os.getenv("ENV_FILE", ".env"))
@@ -75,4 +88,5 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("start", start, filters.ChatType.PRIVATE))
     app.add_handler(MessageHandler(filters.ChatType.PRIVATE, handle_message))
     app.add_handler(CallbackQueryHandler(handle_callback))
+    app.add_handler(ChatMemberHandler(group))
     app.run_polling()
