@@ -132,7 +132,7 @@ class Home(State):
                     InlineKeyboardButton("Надіслати чергування", callback_data="SaveDutyPhoto")
                 ],
                 [
-                    InlineKeyboardButton("Преглянути чергування", callback_data="GetDutyPhoto")
+                    InlineKeyboardButton("Переглянути чергування", callback_data="GetDutyPhoto")
                 ],
                 [
                     InlineKeyboardButton("Історія чергувань", callback_data="DutyHistory")

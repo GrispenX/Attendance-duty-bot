@@ -93,7 +93,7 @@ def get_users() -> List[User]:
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT id FROM users"
+                "SELECT id FROM users ORDER BY surname ASC"
             )
             users = cur.fetchall()
             return [get_user_by_id(user[0]) for user in users] if users else []
@@ -112,7 +112,7 @@ def get_users_by_role(role: str) -> List[User]:
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT user_id FROM roles WHERE role = ?",
+                "SELECT user_id FROM roles WHERE role = ? JOIN users ON users.id = roles.user_id",
                 (role,)
             )
             users = cur.fetchall()
