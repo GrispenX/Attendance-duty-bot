@@ -112,7 +112,7 @@ def get_users_by_role(role: str) -> List[User]:
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT user_id FROM roles WHERE role = ? JOIN users ON users.id = roles.user_id",
+                "SELECT users.id FROM users JOIN roles ON roles.user_id = users.id WHERE roles.role = ? ORDER BY users.surname",
                 (role,)
             )
             users = cur.fetchall()
